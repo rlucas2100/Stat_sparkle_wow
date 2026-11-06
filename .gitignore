@@ -1,0 +1,12 @@
+# OS junk
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Editor settings
+.vscode/
+.idea/
+
+# Release zips / packager output
+*.zip
+.release/

@@ -1,0 +1,8 @@
+## Interface: 120105, 120100, 120001
+## Title: |cffffd200Stat|rSparkle
+## Notes: Live secondary stats in a neon glitter style, with green/red highlights and star sparkles when procs move them
+## Author: Orion
+## Version: 2.7.1
+## SavedVariables: StatSparkleDB
+
+StatSparkle.lua
