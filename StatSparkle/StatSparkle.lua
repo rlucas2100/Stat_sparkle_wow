@@ -2,8 +2,8 @@
   StatSparkle - your stats, live, cartoon style
 
   Rows (top to bottom):
-      Primary stat  = Strength (Protection / Retribution) or Intellect (Holy)
-                      - swaps automatically when you change spec
+      Primary stat  = Strength, Agility or Intellect - whichever your current
+                      spec uses. Swaps automatically when you change spec.
       Armor         = silver
       Critical Strike = fiery red   Haste = golden yellow
       Mastery = purple              Versatility = teal
@@ -65,15 +65,34 @@ local function Clamp(v, lo, hi) return v < lo and lo or (v > hi and hi or v) end
 local function Lerp(a, b, k) return a + (b - a) * k end
 
 -- ---------------------------------------------------------------------------
--- Primary stat follows your spec (Strength for tanking, Intellect for healing)
+-- Primary stat follows your spec: Strength, Agility or Intellect
 -- ---------------------------------------------------------------------------
 local PRIMARY = {
     str = { label = "Strength", icon = "ico_str", rowArt = "row_str", labelArt = "label_str", stat = 1,
             art = { 186, 61, 256, 64 }, theme = { 0.96, 0.62, 0.24 }, text = { 1.00, 0.82, 0.55 } },
+    agi = { label = "Agility", icon = "ico_agi", rowArt = "row_agi", labelArt = "label_agi", stat = 2,
+            art = { 148, 61, 256, 64 }, theme = { 1.00, 0.40, 0.70 }, text = { 1.00, 0.74, 0.88 } },
     int = { label = "Intellect", icon = "ico_int", rowArt = "row_int", labelArt = "label_int", stat = 4,
             art = { 177, 53, 256, 64 }, theme = { 0.36, 0.60, 1.00 }, text = { 0.72, 0.84, 1.00 } },
 }
 local primaryKey = "str"
+
+-- the spec's primary stat (LE_UNIT_STAT_*) -> row
+local STAT_KEY = { [1] = "str", [2] = "agi", [4] = "int" }
+
+-- backup if the game won't say which primary stat a spec uses: every Strength and
+-- Agility spec by ID. Any other spec (casters, healers, Devourer) is Intellect.
+local SPEC_KEY = {
+    [71] = "str", [72] = "str", [73] = "str",                 -- Warrior
+    [66] = "str", [70] = "str",                               -- Protection / Retribution Paladin
+    [250] = "str", [251] = "str", [252] = "str",              -- Death Knight
+    [253] = "agi", [254] = "agi", [255] = "agi",              -- Hunter
+    [259] = "agi", [260] = "agi", [261] = "agi",              -- Rogue
+    [268] = "agi", [269] = "agi",                             -- Brewmaster / Windwalker Monk
+    [103] = "agi", [104] = "agi",                             -- Feral / Guardian Druid
+    [263] = "agi",                                            -- Enhancement Shaman
+    [577] = "agi", [581] = "agi",                             -- Havoc / Vengeance Demon Hunter
+}
 
 local function SpecPrimary()
     local CS = C_SpecializationInfo
@@ -81,19 +100,20 @@ local function SpecPrimary()
     local getInfo = (CS and CS.GetSpecializationInfo) or GetSpecializationInfo
     local idx = Readable(Call(getSpec))
     if idx and getInfo then
-        local ok, _, _, _, _, role, stat = pcall(getInfo, idx)
+        local ok, specID, _, _, _, _, stat = pcall(getInfo, idx)
         if ok then
-            stat, role = Readable(stat), Readable(role)
-            if stat == 4 then return "int" end                 -- LE_UNIT_STAT_INTELLECT
-            if stat == 1 or stat == 2 then return "str" end
-            if role == "HEALER" then return "int" end
-            if role == "TANK" or role == "DAMAGER" then return "str" end
+            stat, specID = Readable(stat), Readable(specID)
+            if STAT_KEY[stat] then return STAT_KEY[stat] end
+            if specID and specID > 0 then return SPEC_KEY[specID] or "int" end
         end
     end
-    -- no spec info yet (loading screen): go by whichever is higher on the gear
-    local int = Readable(Call(UnitStat, "player", 4)) or 0
-    local str = Readable(Call(UnitStat, "player", 1)) or 0
-    return int > str and "int" or "str"
+    -- no spec info yet (loading screen): go by whichever is highest on the gear
+    local best, bestV = "str", -1
+    for _, key in ipairs({ "str", "agi", "int" }) do
+        local v = Readable(Call(UnitStat, "player", PRIMARY[key].stat)) or 0
+        if v > bestV then best, bestV = key, v end
+    end
+    return best
 end
 
 -- ---------------------------------------------------------------------------
@@ -101,8 +121,8 @@ end
 -- ---------------------------------------------------------------------------
 local CR_VERS = CR_VERSATILITY_DAMAGE_DONE or 29
 
--- casters/healers use spell crit, everyone else melee/ranged crit; picked by
--- the spec's primary stat so the number never flips between the two
+-- Intellect specs use spell crit, Strength and Agility specs melee/ranged crit;
+-- picked by the spec's primary stat so the number never flips between the two
 local function IsCaster() return primaryKey == "int" end
 
 local function MaxOf(list)
@@ -791,7 +811,7 @@ local function SetValue(r, fmt, v)
     end
 end
 
--- Strength / Intellect / Armor show as 12,345; everything else as 12.34%
+-- Strength / Agility / Intellect / Armor show as 12,345; everything else as 12.34%
 local function FormatValue(r, v)
     if r.stat.integer then
         local n = math.floor(v + 0.5)
@@ -811,7 +831,7 @@ local function SetValueText(r, text)
     for _, o in ipairs(r.halo) do o:SetText(text) end
 end
 
--- swap the primary row between Strength and Intellect
+-- swap the primary row between Strength, Agility and Intellect (only this row changes)
 local function ApplyPrimary(key)
     if not PRIMARY[key] then key = "str" end
     if key == primaryKey and rows[1].skinnedFor == key then return end
