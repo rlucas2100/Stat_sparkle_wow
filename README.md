@@ -48,8 +48,12 @@ When Critical Strike, Haste, Mastery or Versatility reaches **50% or more**, the
 - a deep purple aura and a gold ring that shimmers between gold and orange
 - purple and gold lightning crackling across the row, behind the number
 - a number that shifts between gold and orange
-- a gold arrow in a shimmering orb with twinkling sparks
+- a rainbow phoenix arrow that flashes through every colour, glowing in a rainbow orb, with sparkles spraying off its tips
 - stars in every colour pouring out either side
+
+![StatSparkle jackpot mode](docs/ingame_jackpot.png)
+
+*Critical Strike at 52.23% in jackpot mode, with its gold number and rainbow phoenix arrow. Armor, Haste and Mastery are up from procs.*
 
 Out of combat you also hear a short shimmer as a stat climbs past 50%. It's the only sound StatSparkle makes, so it won't clash with your other addons. `/ss sound` turns it off.
 
@@ -114,7 +118,7 @@ When a percentage stat reaches **60% or higher**, its number turns white-hot and
 
 ## Artwork
 
-All textures are hand-made. The lightning comes from Orion's Juggernaut Mode addon, and the little star is drawn from Orion's own sketch.
+All textures are hand-made. The lightning comes from Orion's Juggernaut Mode addon, and the little star and the rainbow phoenix arrow are drawn from Orion's own sketches.
 
 ![StatSparkle textures](docs/textures.png)
 

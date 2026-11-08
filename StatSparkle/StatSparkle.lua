@@ -544,13 +544,17 @@ for i, st in ipairs(STATS) do
         -- the number: amber, with an even gold <-> orange glow shifting across all of it
         hi.tint = GateBar(r.gHigh, 7, MEDIA .. "tint_fire", "MOD")
         hi.flame = GateBar(r.gHigh, 8, MEDIA .. "glow_box", "ADD", JP_GOLD)
-        -- the arrow: a gold one drawn over the green one, in a shimmering orb with sparks
+        -- the arrow: a rainbow PHOENIX (from Orion's drawings) drawn over the green
+        -- one - six frames with the rainbow turned a step each, flicked through fast
+        -- so the colours flow - in a rainbow orb, with sparkles spraying off its tips
         hi.orb = GateBar(r.gHigh, 9, MEDIA .. "blob", "ADD", JP_GOLD)
-        hi.arrow = GateBar(r.gHigh, 10, MEDIA .. "arrow_up")
+        hi.phoenix = {}
+        for k = 1, 6 do hi.phoenix[k] = GateBar(r.gHigh, 10, MEDIA .. "phoenix" .. k) end
         hi.sparks = {}
-        for k = 1, 2 do
-            local s = GateBar(r.gHigh, 10, MEDIA .. "spark", "ADD", k == 1 and { 1, 0.85, 0.5 } or { 0.85, 0.6, 1 })
-            s.phase, s.lastQ, s.x, s.y = (k - 1) / 2, 0, 0, 0
+        for k = 1, 6 do
+            local s = GateBar(r.gHigh, 10, MEDIA .. "spark", "ADD")
+            s.phase, s.lastQ, s.side = (k - 1) / 6, 0, (k % 2 == 0) and 1 or -1
+            s.vx, s.vy, s.hue = 0, 0, 0
             hi.sparks[k] = s
         end
         r.fh = hi
@@ -764,6 +768,19 @@ end
 -- ---- 50%+ jackpot mode: gold / orange, lightning, a golden number and arrow ----
 local function Mix(a, b, k) return Lerp(a[1], b[1], k), Lerp(a[2], b[2], k), Lerp(a[3], b[3], k) end
 
+-- a colour from the rainbow: 0 red -> yellow -> green -> cyan -> blue -> magenta -> 1 red
+local function Rainbow(h)
+    h = (h % 1) * 6
+    local i = math.floor(h)
+    local f = h - i
+    if i == 0 then return 1, f, 0
+    elseif i == 1 then return 1 - f, 1, 0
+    elseif i == 2 then return 0, 1, f
+    elseif i == 3 then return 0, 1 - f, 1
+    elseif i == 4 then return f, 0, 1 end
+    return 1, 0, 1 - f
+end
+
 local function AnimateFire(hi, r, t, vw)
     local vx = VALUE_X - vw / 2
     local swing = 0.5 + 0.5 * math.sin(t * 3 + r.phase)          -- gold <-> orange
@@ -794,20 +811,33 @@ local function AnimateFire(hi, r, t, vw)
     GatePlace(hi.flame, r, vx, 0, vw + 30, 56)
     hi.flame:SetStatusBarColor(Mix(JP_GOLD, JP_ORANGE, 0.5 + 0.5 * math.sin(t * 2.4 + r.phase)))
     hi.flame:SetAlpha(0.38 + 0.04 * math.sin(t * 17))
-    -- the arrow: gold <-> orange, in a shimmering orb, sparks twinkling round it
+    -- the arrow: a rainbow phoenix. The current frame is fully shown and the next one
+    -- fades in over it, 8 frames a second, so the rainbow flashes and flows upwards
     local bob = math.sin(t * 6) * 4
-    GatePlace(hi.arrow, r, ARROW_X, bob, 38 * (1 + 0.12 * math.sin(t * 8)))
-    hi.arrow:SetStatusBarColor(Mix(JP_GOLD, JP_ORANGE, swing))
-    GatePlace(hi.orb, r, ARROW_X, bob, 62 + 6 * math.sin(t * 7))
-    hi.orb:SetStatusBarColor(Mix(JP_ORANGE, JP_GOLD, swing))
-    hi.orb:SetAlpha(0.55 + 0.3 * math.sin(t * 7 + r.phase))
+    local pz = 1 + 0.06 * math.sin(t * 8)
+    local fl = (t * 8) % 6
+    local cur = math.floor(fl)
+    local nxt, k = (cur + 1) % 6, fl - cur
+    for i, b in ipairs(hi.phoenix) do
+        GatePlace(b, r, ARROW_X, bob - 1, 44 * pz, 56 * pz)
+        b:SetAlpha((i - 1 == cur) and 1 or ((i - 1 == nxt) and k or 0))
+    end
+    GatePlace(hi.orb, r, ARROW_X, bob, 66 + 8 * math.sin(t * 7))
+    hi.orb:SetStatusBarColor(Rainbow(t * 0.9))
+    hi.orb:SetAlpha(0.6 + 0.3 * math.sin(t * 7 + r.phase))
+    -- rainbow sparkles spraying off the two tips of the arrowhead
     for _, s in ipairs(hi.sparks) do
-        local q = (t * 1.4 + s.phase) % 1
-        if q < s.lastQ then s.x, s.y = (math.random() - 0.5) * 34, (math.random() - 0.5) * 34 end
+        local q = (t * 1.6 + s.phase) % 1
+        if q < s.lastQ then
+            -- short sideways spray, so the left-hand sparkles never reach the number
+            s.vx, s.vy, s.hue = s.side * (4 + math.random() * 8), 4 + math.random() * 12, math.random()
+        end
         s.lastQ = q
-        local tw = math.sin(q * math.pi)
-        GatePlace(s, r, ARROW_X + s.x, bob + s.y, 3 + 15 * tw * tw)
-        s:SetAlpha(tw)
+        local life = q * 0.6
+        GatePlace(s, r, ARROW_X + s.side * 20 * pz + s.vx * life, bob - 3 + s.vy * life - 45 * life * life,
+                  3 + 7 * (1 - q))
+        s:SetStatusBarColor(Rainbow(s.hue + t * 2))
+        s:SetAlpha(1 - q)
     end
     AnimateStars(hi, r, t, vw, 0.7)
 end

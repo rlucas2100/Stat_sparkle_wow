@@ -1,5 +1,12 @@
 # StatSparkle Changelog
 
+## 2.10.2
+
+### New
+- **🌈 Rainbow phoenix arrow in jackpot mode.** At 50% or more, the arrow becomes a glittery rainbow phoenix, drawn from Orion's own sketches, with rainbow light streaming from its tail. It flashes through every colour, glows in an orb that cycles the rainbow, and sprays rainbow sparkles from the tips of the arrowhead. It replaces the old orange arrow, which could look red.
+
+---
+
 ## 2.10.1
 
 ### Changed

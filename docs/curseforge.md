@@ -54,8 +54,12 @@ When Critical Strike, Haste, Mastery or Versatility reaches **50% or more**, the
 - a deep purple aura and a gold ring that shimmers between gold and orange
 - purple and gold lightning crackling across the row, behind the number
 - a number that shifts between gold and orange
-- a gold arrow in a shimmering orb with twinkling sparks
+- a rainbow phoenix arrow that flashes through every colour, glowing in a rainbow orb, with sparkles spraying off its tips
 - stars in every colour pouring out either side
+
+![StatSparkle jackpot mode](https://raw.githubusercontent.com/rlucas2100/Stat_sparkle_wow/main/docs/ingame_jackpot.png)
+
+*Critical Strike at 52.23% in jackpot mode, with its gold number and rainbow phoenix arrow. Armor, Haste and Mastery are up from procs.*
 
 Jackpot mode starts 10% below the supernova point, so `/ss nova 55` moves it to 45%.
 
