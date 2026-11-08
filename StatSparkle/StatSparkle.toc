@@ -2,7 +2,7 @@
 ## Title: |cffffd200Stat|rSparkle
 ## Notes: Live primary stat (Strength, Agility or Intellect, following your spec), Armor and secondary stats in a neon glitter style, with green/red highlights in and out of combat, cartoon stars, purple-and-orange fire mode with lightning at 50% and a supernova at 60%
 ## Author: Orion
-## Version: 2.10.0
+## Version: 2.10.1
 ## SavedVariables: StatSparkleDB
 
 StatSparkle.lua

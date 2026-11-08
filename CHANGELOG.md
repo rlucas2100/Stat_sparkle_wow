@@ -1,5 +1,13 @@
 # StatSparkle Changelog
 
+## 2.10.1
+
+### Fixed
+- **Red now works in combat too.** When a stat dropped below your normal during a fight, for example while an effect turned your secondary stats into Strength, its row stayed plain instead of turning red. Now it turns red with the ▼ arrow in combat too. StatSparkle checks how the game draws its bars when you log in and picks a method that works. If it can't tell, red stays off in combat, so a row never turns red by mistake.
+- `/ss combat` now also tells you whether red works in combat.
+
+---
+
 ## 2.10.0
 
 ### New

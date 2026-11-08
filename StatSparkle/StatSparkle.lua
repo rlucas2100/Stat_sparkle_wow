@@ -1179,29 +1179,77 @@ local function FeedUp(set, lo, hi, raw)
     for _, b in ipairs(set) do b:SetMinMaxValues(lo, hi); b:SetValue(raw) end
 end
 
-local minMaxTakesSecrets   -- nil until needed: can a status bar's max be a secret?
+-- DOWN-style bars (red). A status bar only fills further as its value RISES, so
+-- "full when the stat is LOW" needs an upside-down range (min above max), and
+-- the game can draw that in different ways. TestDownMode() measures how this
+-- game draws it at login and picks a way that works:
+--   "inverted"  - upside-down ranges fill backwards: range from normal - half a
+--                 step down to normal - one step, value = the stat
+--   "minsecret" - upside-down ranges draw empty: min = the stat, max = just
+--                 above normal - one step, value = normal - one step
+--   "none"      - couldn't tell: no red in combat (but never a false red)
+local downMode   -- nil until TestDownMode has finished
 
--- DOWN-style bars: the stat itself is the bar's MAX and its value is "normal -
--- one step", so the bar is full once the stat drops to that, and only a 0.1%
--- sliver (the texture's see-through edge) at normal
 local function FeedDown(set, base, thr, raw)
-    local c, cLo = base - thr, base - thr * 1.001
-    local readable, first, mode = Readable(raw), set[1]
-    if readable then                                   -- out of combat / preview
-        mode = readable <= c and 1 or 0
-    elseif pcall(first.SetMinMaxValues, first, cLo, raw) then
-        mode = "range"
-    else
-        -- refused: either max < min (the stat is far below normal) or status
-        -- bars don't take secrets at all - one test tells the two apart
-        if minMaxTakesSecrets == nil then minMaxTakesSecrets = pcall(first.SetMinMaxValues, first, -1e15, raw) end
-        mode = minMaxTakesSecrets and 1 or 0
-    end
+    local c = base - thr
+    local readable = Readable(raw)
     for _, b in ipairs(set) do
-        if mode == "range" then b:SetMinMaxValues(cLo, raw); b:SetValue(c)
-        else b:SetMinMaxValues(0, 1); b:SetValue(mode) end
+        if readable then                                    -- out of combat / preview
+            b:SetMinMaxValues(0, 1); b:SetValue(readable <= c and 1 or 0)
+        elseif downMode == "inverted" and pcall(b.SetMinMaxValues, b, base - thr * 0.5, c) then
+            b:SetValue(raw)
+        elseif downMode == "minsecret" and pcall(b.SetMinMaxValues, b, raw, c + thr * 0.001) then
+            b:SetValue(c)
+        else
+            b:SetMinMaxValues(0, 1); b:SetValue(0)
+        end
     end
 end
+
+-- How does this game draw a status bar with an upside-down range? Measured once
+-- after login on an invisible bar, with plain numbers (nothing secret).
+local function TestDownMode()
+    local bar = CreateFrame("StatusBar", nil, f)
+    bar:SetSize(100, 8)
+    bar:SetPoint("CENTER")
+    bar:SetAlpha(0)
+    bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+    local fill = bar:GetStatusBarTexture()
+    local function Filled()                       -- how much of the bar is filled, 0..1
+        local ok, w = pcall(fill.GetWidth, fill)
+        if not ok or not Readable(w) or not fill:IsShown() then return 0 end
+        return w / 100
+    end
+    local steps = {                               -- { min, max, value }
+        { 0, 1, 0.5 },                            -- 1: normal range, half full
+        { 1, 0, 0.25 },                           -- 2: upside-down: 0.75 if it fills backwards
+        { 0.75, 0.5, 0.49 },                      -- 3: "minsecret" with the stat NOT down: must be empty
+        { 0.3, 0.5, 0.49 },                       -- 4: "minsecret" with the stat down: ~full
+    }
+    local got, i = {}, 0
+    local function Near(v, x) return v ~= nil and math.abs(v - x) < 0.1 end
+    local function Step()
+        if i > 0 and got[i] == nil then got[i] = Filled() end
+        i = i + 1
+        local s = steps[i]
+        if not s then
+            bar:Hide()
+            if not Near(got[1], 0.5) then downMode = "none"
+            elseif Near(got[2], 0.75) then downMode = "inverted"
+            elseif Near(got[3], 0) and Near(got[4], 0.95) then downMode = "minsecret"
+            else downMode = "none" end
+            return
+        end
+        if pcall(bar.SetMinMaxValues, bar, s[1], s[2]) then
+            bar:SetValue(s[3])
+        else
+            got[i] = (i == 3) and 0 or -1         -- refusing step 3 = "not down" stays empty too
+        end
+        C_Timer.After(0.2, Step)
+    end
+    Step()
+end
+local downTested = false
 
 local function FeedGates(r, raw)   -- in combat: up, down, supernova
     local thr, base = r.stat.threshold or THRESHOLD, r.base
@@ -1379,6 +1427,10 @@ ev:SetScript("OnEvent", function(_, event, arg1)
         or event == "ACTIVE_TALENT_GROUP_CHANGED" or event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED" then
         C_Timer.After(0.5, function() ResetBaseline(); pcall(Update) end)
     else
+        if event == "PLAYER_ENTERING_WORLD" and not downTested then
+            downTested = true
+            pcall(TestDownMode)
+        end
         pcall(Update)
     end
 end)
@@ -1436,6 +1488,11 @@ SlashCmdList.STATSPARKLE = function(msg)
         combatDemo = now + 8
         Update()
         Print("Showing the in-combat look for 8 seconds.")
+        if downMode == "none" then
+            Print("Red for stats below normal isn't available in combat in this version of the game.")
+        elseif downMode then
+            Print("Red for stats below normal: works in combat too.")
+        end
     elseif cmd == "sound" then
         db.highSound = not db.highSound
         Print("50%+ shimmer sound " .. (db.highSound and "ON" or "OFF"))
