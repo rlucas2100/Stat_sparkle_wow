@@ -1,6 +1,6 @@
 # ✨ StatSparkle
 
-**Watch your stats move, live.** StatSparkle shows your primary stat, Armor and secondary stats in a glowing neon panel. When a trinket, proc or buff pushes a stat up or down, its row lights up **green** or **red**, an arrow bobs next to it and tiny cartoon stars pour out beside the number. At **50%** a stat goes into purple-and-orange **fire mode** with crackling lightning, and at **60%** it goes **supernova**.
+**Watch your stats move, live.** StatSparkle shows your primary stat, Armor and secondary stats in a glowing neon panel. When a trinket, proc or buff pushes a stat up or down, its row lights up **green** or **red**, an arrow bobs next to it and tiny cartoon stars pour out beside the number. At **50%** a stat goes into golden **jackpot mode** with crackling lightning, and at **60%** it goes **supernova**.
 
 **Works for every class and spec, in and out of combat.** Strength, Agility or Intellect: StatSparkle shows the one your spec uses, and switches by itself when you change spec.
 
@@ -47,29 +47,29 @@ The top row always shows the primary stat that **your current spec** uses. You d
 
 While a stat is up, tiny cartoon stars in green, gold and white pour out to the left and right of the number. They stay inside the row and never cover the number.
 
-## 🔥 Fire mode at 50%
+## 🎰 Jackpot mode at 50%
 
-When Critical Strike, Haste, Mastery or Versatility reaches **50% or more**, the row goes into fire mode, so it stands apart from rows that are just green:
+When Critical Strike, Haste, Mastery or Versatility reaches **50% or more**, the row goes into jackpot mode. It's gold, so it stands apart from rows that are just green, and from red, which means a stat is down:
 
-- a deep purple aura and a fiery ring that shifts between orange and purple
-- purple and orange lightning crackling across the row, behind the number
-- a fiery magenta-and-orange number with a flickering flame
-- a fiery arrow in a shimmering orb with twinkling sparks
+- a deep purple aura and a gold ring that shimmers between gold and orange
+- purple and gold lightning crackling across the row, behind the number
+- a number that shifts between gold and orange
+- a gold arrow in a shimmering orb with twinkling sparks
 - stars in every colour pouring out either side
 
-Fire mode starts 10% below the supernova point, so `/ss nova 55` moves it to 45%.
+Jackpot mode starts 10% below the supernova point, so `/ss nova 55` moves it to 45%.
 
 Out of combat you also hear a short shimmer as a stat climbs past 50%. It's the only sound StatSparkle makes, so it won't clash with your other addons. `/ss sound` turns it off.
 
 ## ⚔️ In combat
 
-World of Warcraft: Midnight hides your exact stats from addons during combat. StatSparkle still shows the live numbers, and rows still light up green or red with the arrow, the stars, fire mode and the supernova. It lets the game do the comparison.
+World of Warcraft: Midnight hides your exact stats from addons during combat. StatSparkle still shows the live numbers, and rows still light up green or red with the arrow, the stars, jackpot mode and the supernova. It lets the game do the comparison.
 
 A few things only work out of combat: the exact change under the stat name (`+6.00%`), the star burst at the moment of a proc, the supernova's flash and screen shake, and the 50% sound. Type `/ss combat` to preview the in-combat look.
 
 ![StatSparkle in combat](https://raw.githubusercontent.com/rlucas2100/Stat_sparkle_wow/main/docs/ingame_combat.png)
 
-*In combat on a Protection Paladin: Strength, Armor and Haste are up from procs, and Critical Strike has hit 60.50%, so it's in fire mode and going supernova.*
+*In combat on a Protection Paladin: Strength, Armor and Haste are up from procs, and Critical Strike has hit 60.50% and gone supernova.*
 
 ## 💥 Supernova
 
@@ -96,7 +96,7 @@ When a percentage stat reaches **60% or higher**, its number turns white-hot and
 | `/ss test` | Fake one proc up and one proc down to see the effects |
 | `/ss combat` | Preview the in-combat look for 8 seconds |
 | `/ss nova` | Fake a Haste supernova |
-| `/ss nova 55` | Make supernova start at 55% (default 60). Fire mode starts 10% below that. |
+| `/ss nova 55` | Make supernova start at 55% (default 60). Jackpot mode starts 10% below that. |
 | `/ss nova off` | Turn the supernova effect off (`/ss nova on` to turn it back on) |
 | `/ss unlock` | Unlock the panel so you can drag it |
 | `/ss lock` | Lock it in place |
@@ -106,6 +106,10 @@ When a percentage stat reaches **60% or higher**, its number turns white-hot and
 | `/ss reset` | Reset position, scale and settings |
 
 `/statsparkle` works too.
+
+## Installing by hand
+
+With the CurseForge app, just click Install. If you download the zip yourself, open it and drag the `StatSparkle` folder inside it into `World of Warcraft/_retail_/Interface/AddOns/`. You should end up with `AddOns/StatSparkle/StatSparkle.toc`. If you use Windows' **Extract All**, change the destination to the `AddOns` folder itself, or Windows adds an extra folder and WoW won't find the addon. Then restart the game.
 
 ## FAQ
 

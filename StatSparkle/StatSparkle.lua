@@ -16,10 +16,11 @@
   While a stat is up, tiny cartoon stars pour out to the left and right of
   the number. The stars stay inside the card and never cover the number.
 
-  FIRE MODE: a % stat at 50% or more (10% below the supernova point) turns
-  deep purple / orange so it stands apart from plain green "up" rows: a
-  purple aura and a fiery ring, lightning crackling across the card (from
-  Juggernaut Mode), a fiery number and arrow, and stars in every colour.
+  JACKPOT MODE: a % stat at 50% or more (10% below the supernova point) turns
+  gold so it stands apart from plain green "up" rows (and never red, which
+  means a stat is DOWN): a purple aura and a gold ring, lightning crackling
+  across the card (from Juggernaut Mode), a number and arrow that shift
+  between gold and orange, and stars in every colour.
 
   SUPERNOVA: when a % stat climbs really high (60%+ by default) the number
   turns white-hot and the row goes off like an exploding star - shockwave
@@ -209,7 +210,8 @@ do   -- start the primary row as Strength until the spec is known
 end
 
 local UP_C, DOWN_C = { 0.30, 1.00, 0.35 }, { 1.00, 0.22, 0.18 }
-local FIRE_PURPLE, FIRE_ORANGE = { 0.62, 0.12, 1.00 }, { 1.00, 0.48, 0.08 }   -- 50%+ fire mode
+-- 50%+ jackpot mode: gold and orange (never red - red means a stat is DOWN), purple accents
+local JP_PURPLE, JP_GOLD, JP_ORANGE = { 0.62, 0.12, 1.00 }, { 1.00, 0.82, 0.20 }, { 1.00, 0.50, 0.08 }
 local HOT_C = { 1.00, 0.97, 0.86 }   -- white-hot colour a supernova number burns towards
 
 -- ---------------------------------------------------------------------------
@@ -521,29 +523,29 @@ for i, st in ipairs(STATS) do
     Shimmer(r.fu, r.gUpFx, UP_C, { GREEN, GOLD, { 0.7, 1, 0.6 }, WHITE, GREEN })   -- up: green + gold stars
     Shimmer(r.fd, r.gDownFx, DOWN_C)                                                -- down: no stars
     if not st.integer then
-        -- % stats from 50%: FIRE MODE - deep purple / orange, so it stands apart
-        -- from the plain green of a stat that is only up
+        -- % stats from 50%: JACKPOT MODE - gold and orange with purple accents, so
+        -- it stands apart from the plain green of a stat that is only up
         local hi = {}
-        hi.aura = GateBar(r.gHigh, 1, MEDIA .. "glow_outer", "ADD", FIRE_PURPLE)   -- deep purple aura
+        hi.aura = GateBar(r.gHigh, 1, MEDIA .. "glow_outer", "ADD", JP_PURPLE)     -- deep purple aura
         Around(hi.aura, 30)
-        hi.aura2 = GateBar(r.gHigh, 1, MEDIA .. "glow_outer", "ADD", FIRE_ORANGE)  -- orange glow, close in
+        hi.aura2 = GateBar(r.gHigh, 1, MEDIA .. "glow_outer", "ADD", JP_GOLD)      -- gold glow, close in
         Around(hi.aura2, 16)
-        hi.border = GateBar(r.gHigh, 3, MEDIA .. "row_border")                     -- fiery ring over the green one
+        hi.border = GateBar(r.gHigh, 3, MEDIA .. "row_border")                     -- gold ring over the green one
         Around(hi.border, 5)
-        Shimmer(hi, r.gHigh, FIRE_ORANGE,
+        Shimmer(hi, r.gHigh, JP_GOLD,
                 { GREEN, { 0.75, 0.45, 1 }, { 1, 0.5, 0.8 }, GOLD, { 0.4, 0.9, 1 } })   -- + rainbow stars
         -- lightning crackling across the card (from Juggernaut Mode), behind the number
         hi.bolts = {}
-        for k, c in ipairs({ FIRE_PURPLE, FIRE_ORANGE }) do
+        for k, c in ipairs({ JP_PURPLE, JP_GOLD }) do
             local slot = { speed = k == 1 and 170 or 230, phase = (k - 1) * 230, next = 0, v = 1, bright = 1 }
             for v = 1, 3 do slot[v] = GateBar(r.gHigh, 5, MEDIA .. "bolt" .. v, "ADD", c, 1, clip) end
             hi.bolts[k] = slot
         end
-        -- the number: deep purple, with an orange flame flickering across it
+        -- the number: amber, with an even gold <-> orange glow shifting across all of it
         hi.tint = GateBar(r.gHigh, 7, MEDIA .. "tint_fire", "MOD")
-        hi.flame = GateBar(r.gHigh, 8, MEDIA .. "blob", "ADD", FIRE_ORANGE)
-        -- the arrow: a fiery one drawn over the green one, in a shimmering orb with sparks
-        hi.orb = GateBar(r.gHigh, 9, MEDIA .. "blob", "ADD", FIRE_ORANGE)
+        hi.flame = GateBar(r.gHigh, 8, MEDIA .. "glow_box", "ADD", JP_GOLD)
+        -- the arrow: a gold one drawn over the green one, in a shimmering orb with sparks
+        hi.orb = GateBar(r.gHigh, 9, MEDIA .. "blob", "ADD", JP_GOLD)
         hi.arrow = GateBar(r.gHigh, 10, MEDIA .. "arrow_up")
         hi.sparks = {}
         for k = 1, 2 do
@@ -759,18 +761,18 @@ local function AnimateStars(g, r, t, vw, speed)
     end
 end
 
--- ---- 50%+ fire mode: purple / orange, lightning, a fiery number and arrow ----
+-- ---- 50%+ jackpot mode: gold / orange, lightning, a golden number and arrow ----
 local function Mix(a, b, k) return Lerp(a[1], b[1], k), Lerp(a[2], b[2], k), Lerp(a[3], b[3], k) end
 
 local function AnimateFire(hi, r, t, vw)
     local vx = VALUE_X - vw / 2
-    local swing = 0.5 + 0.5 * math.sin(t * 3 + r.phase)          -- orange <-> purple
+    local swing = 0.5 + 0.5 * math.sin(t * 3 + r.phase)          -- gold <-> orange
     local flick = 0.85 + 0.15 * math.sin(t * 13 + r.phase)
     hi.aura:SetAlpha(0.55 + 0.35 * math.sin(t * 2.5 + r.phase))
     hi.aura2:SetAlpha((0.3 + 0.25 * swing) * flick)
-    hi.border:SetStatusBarColor(Mix(FIRE_ORANGE, FIRE_PURPLE, swing))
+    hi.border:SetStatusBarColor(Mix(JP_GOLD, JP_ORANGE, swing))
     hi.border:SetAlpha(0.85 + 0.15 * math.sin(t * 9))             -- buzzing neon ring
-    hi.inner:SetStatusBarColor(Mix(FIRE_PURPLE, FIRE_ORANGE, swing))
+    hi.inner:SetStatusBarColor(Mix(JP_ORANGE, JP_GOLD, swing))
     hi.inner:SetAlpha(0.18 + 0.1 * math.sin(t * 4 + r.phase))
     -- lightning: sweeps across the card, re-striking with a new shape every few frames
     local now, rowW = GetTime(), W - PAD * 2
@@ -787,17 +789,17 @@ local function AnimateFire(hi, r, t, vw)
             b:SetAlpha(v == slot.v and slot.bright or 0)
         end
     end
-    -- the number: deep magenta / purple, with an orange flame swaying across it
+    -- the number: amber, lit evenly by a glow that shifts gold <-> orange
     GatePlace(hi.tint, r, vx, 0, vw + 30, 56)
-    GatePlace(hi.flame, r, vx + math.sin(t * 2.3 + r.phase) * vw * 0.15, 0, vw * 0.8 + 20, 44)
-    hi.flame:SetStatusBarColor(1, 0.4 + 0.15 * math.sin(t * 5 + r.phase), 0.05)
-    hi.flame:SetAlpha((0.5 + 0.1 * math.sin(t * 17)) * flick)
-    -- the arrow: fiery orange <-> magenta, in a shimmering orb, sparks twinkling round it
+    GatePlace(hi.flame, r, vx, 0, vw + 30, 56)
+    hi.flame:SetStatusBarColor(Mix(JP_GOLD, JP_ORANGE, 0.5 + 0.5 * math.sin(t * 2.4 + r.phase)))
+    hi.flame:SetAlpha(0.38 + 0.04 * math.sin(t * 17))
+    -- the arrow: gold <-> orange, in a shimmering orb, sparks twinkling round it
     local bob = math.sin(t * 6) * 4
     GatePlace(hi.arrow, r, ARROW_X, bob, 38 * (1 + 0.12 * math.sin(t * 8)))
-    hi.arrow:SetStatusBarColor(Mix({ 1, 0.55, 0.1 }, { 1, 0.3, 0.9 }, swing))
+    hi.arrow:SetStatusBarColor(Mix(JP_GOLD, JP_ORANGE, swing))
     GatePlace(hi.orb, r, ARROW_X, bob, 62 + 6 * math.sin(t * 7))
-    hi.orb:SetStatusBarColor(Mix(FIRE_PURPLE, FIRE_ORANGE, swing))
+    hi.orb:SetStatusBarColor(Mix(JP_ORANGE, JP_GOLD, swing))
     hi.orb:SetAlpha(0.55 + 0.3 * math.sin(t * 7 + r.phase))
     for _, s in ipairs(hi.sparks) do
         local q = (t * 1.4 + s.phase) % 1

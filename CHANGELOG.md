@@ -2,6 +2,9 @@
 
 ## 2.10.1
 
+### Changed
+- **🎰 Fire mode is now golden jackpot mode.** At 50% or more, the row's ring, number and arrow shimmer between gold and orange instead of purple and orange. The old colours could look red, and red should only ever mean a stat has dropped. The purple aura, the purple and gold lightning, and the rainbow stars are still there.
+
 ### Fixed
 - **Red now works in combat too.** When a stat dropped below your normal during a fight, for example while an effect turned your secondary stats into Strength, its row stayed plain instead of turning red. Now it turns red with the ▼ arrow in combat too. StatSparkle checks how the game draws its bars when you log in and picks a method that works. If it can't tell, red stays off in combat, so a row never turns red by mistake.
 - `/ss combat` now also tells you whether red works in combat.
