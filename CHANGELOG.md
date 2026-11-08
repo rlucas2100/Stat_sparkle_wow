@@ -1,5 +1,25 @@
 # StatSparkle Changelog
 
+## 2.10.0
+
+### New
+- **⚔️ Highlights now work in combat.** World of Warcraft: Midnight hides your exact stats from addons during combat, so rows used to stay plain while you fought. Now they still light up **green** or **red** with the bobbing arrow, and the stars, fire mode and the supernova all work in combat too. StatSparkle lets the game do the comparison.
+- **⭐ Tiny cartoon stars.** While a stat is up, little green, gold and white stars pour out to the left and right of the number. They stay inside the row and never cover the number.
+- **🔥 Fire mode at 50%.** When Critical Strike, Haste, Mastery or Versatility reaches 50% or more, the row turns purple and orange so it stands apart from plain green rows. It gets a deep purple aura, a fiery ring, lightning crackling behind the number (from Juggernaut Mode), a fiery number and arrow, and stars in every colour. It starts 10% below the supernova point, so `/ss nova` moves it too.
+- **A shimmer sound at 50%.** Out of combat, a short shimmer plays when a stat climbs past 50%. `/ss sound` turns it off or on.
+- **`/ss combat`** previews the in-combat look for 8 seconds.
+
+### Changed
+- **One sound only.** The old optional "sparkle on every change" sound is gone. The 50% shimmer is the only sound left, so StatSparkle won't clash with your other addons' sounds.
+- Numbers keep their thousands separators in combat (`3,873`).
+- The supernova keeps the number readable in combat.
+
+### Fixed
+- Critical Strike no longer shows a false drop or rise in combat. It used to switch to a different kind of crit reading when the numbers were hidden.
+- A number no longer stays green or red from before combat once the fight starts.
+
+---
+
 ## 2.9.0
 
 ### New

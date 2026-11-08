@@ -1,6 +1,6 @@
 # ✨ StatSparkle
 
-**Watch your stats move, live.** StatSparkle is a World of Warcraft addon that shows your primary stat, Armor and secondary stats in a glowing neon panel. It works for every class and spec. When a trinket, proc or buff pushes a stat up or down, its row lights up **green** or **red**, an arrow bobs next to it, the exact change is shown, and a burst of cartoon stars pops out. If a stat climbs really high, it goes **supernova**.
+**Watch your stats move, live.** StatSparkle is a World of Warcraft addon that shows your primary stat, Armor and secondary stats in a glowing neon panel. It works for every class and spec, in and out of combat. When a trinket, proc or buff pushes a stat up or down, its row lights up **green** or **red**, an arrow bobs next to it and tiny cartoon stars pour out beside the number. At **50%** a stat goes into purple-and-orange **fire mode** with crackling lightning, and at **60%** it goes **supernova**.
 
 ![StatSparkle preview](docs/preview.png)
 
@@ -37,9 +37,37 @@ When you change spec, only that row swaps to the new stat's colour, icon and let
 
 ![The Strength, Agility and Intellect rows](docs/primary_rows.png)
 
+## ⭐ Stars while a stat is up
+
+While a stat is up, tiny cartoon stars in green, gold and white pour out to the left and right of the number. They stay inside the row and never cover the number.
+
+## 🔥 Fire mode at 50%
+
+When Critical Strike, Haste, Mastery or Versatility reaches **50% or more**, the row goes into fire mode, so it stands apart from rows that are just green:
+
+- a deep purple aura and a fiery ring that shifts between orange and purple
+- purple and orange lightning crackling across the row, behind the number
+- a fiery magenta-and-orange number with a flickering flame
+- a fiery arrow in a shimmering orb with twinkling sparks
+- stars in every colour pouring out either side
+
+Out of combat you also hear a short shimmer as a stat climbs past 50%. It's the only sound StatSparkle makes, so it won't clash with your other addons. `/ss sound` turns it off.
+
+The 50% point sits 10% below the supernova point, so `/ss nova 55` moves it to 45%.
+
+## ⚔️ In combat
+
+World of Warcraft: Midnight hides your exact stats from addons during combat. StatSparkle still shows the live numbers, and rows still light up green or red with the arrow, the stars, fire mode and the supernova. It lets the game do the comparison.
+
+A few things only work out of combat: the exact change under the stat name (`+6.00%`), the star burst at the moment of a proc, the supernova's flash and screen shake, and the 50% sound. Type `/ss combat` to preview the in-combat look.
+
+![StatSparkle in combat](docs/ingame_combat.png)
+
+*In combat on a Protection Paladin: Strength, Armor and Haste are up from procs, and Critical Strike has hit 60.50%, so it's in fire mode and going supernova.*
+
 ## 💥 Supernova
 
-When a percentage stat reaches **60% or higher**, its number turns white-hot and the row explodes like a star: shockwave rings, spinning light rays, a flash, sparks and a little screen shake. It keeps getting wilder all the way up to 90%.
+When a percentage stat reaches **60% or higher**, its number turns white-hot and the row explodes like a star: shockwave rings, spinning light rays, a flash, sparks and a little screen shake. It keeps getting wilder all the way up to 90%. In combat you still get the white-hot glow, the light rays and the shockwave rings.
 
 ![StatSparkle supernova](docs/preview_supernova.png)
 
@@ -48,12 +76,12 @@ When a percentage stat reaches **60% or higher**, its number turns white-hot and
 ## Features
 
 - **Live updates.** Numbers change the moment a buff, proc, trinket or debuff affects you.
-- **Green and red highlights.** A row glows green with an ▲ arrow when the stat is above your normal value, and red with a ▼ arrow when it's below. The change (`+6.00%`, `-1,240`) is shown under the stat name.
-- **Sparkle effects.** Star bursts, a light sweep across the row, and glowing numbers that hop when a stat jumps. Stars and ghost arrows keep floating up while it stays raised.
+- **Green and red highlights, in and out of combat.** A row glows green with an ▲ arrow when the stat is above your normal value, and red with a ▼ arrow when it's below. Out of combat, the change (`+6.00%`, `-1,240`) is shown under the stat name.
+- **Sparkle effects.** Tiny cartoon stars pour out beside a number while it's up. Out of combat you also get star bursts, a light sweep and a hop when a stat jumps. Stars and ghost arrows keep floating up off the arrow while it stays raised.
 - **Smart "normal" baseline.** StatSparkle learns your normal stats while you're out of combat and nothing is changing. It never updates during combat, so a long cooldown (like Avenging Wrath) can't be mistaken for "normal" and show a false drop afterwards. The baseline resets automatically when you change gear, spec or talents.
 - **Correct crit for your spec.** Uses spell crit for Intellect specs, and melee or ranged crit for Strength and Agility specs.
 - **Movable and resizable.** Drag it anywhere and scale it to fit your UI.
-- **Optional sparkle sound** when stats change (off by default).
+- **One gentle sound:** a shimmer when a stat climbs past 50% out of combat. Nothing else makes a sound.
 
 ## Slash commands
 
@@ -61,14 +89,15 @@ When a percentage stat reaches **60% or higher**, its number turns white-hot and
 |---|---|
 | `/ss` | Show help |
 | `/ss test` | Fake one proc up and one proc down to see the effects |
+| `/ss combat` | Preview the in-combat look for 8 seconds |
 | `/ss nova` | Fake a Haste supernova |
-| `/ss nova 55` | Make supernova start at 55% (default 60) |
+| `/ss nova 55` | Make supernova start at 55% (default 60). Fire mode starts 10% below that. |
 | `/ss nova off` | Turn the supernova effect off (`/ss nova on` to turn it back on) |
 | `/ss unlock` | Unlock the panel so you can drag it |
 | `/ss lock` | Lock it in place |
 | `/ss scale 1.2` | Resize (0.3 to 3) |
 | `/ss normal` | Treat your current stats as normal (resets the baseline) |
-| `/ss sound` | Toggle the sparkle sound |
+| `/ss sound` | Turn the 50% shimmer sound off or on |
 | `/ss reset` | Reset position, scale and settings |
 
 `/statsparkle` works too.
@@ -85,7 +114,7 @@ When a percentage stat reaches **60% or higher**, its number turns white-hot and
 
 ## Artwork
 
-All textures are hand-made for this addon:
+All textures are hand-made. The lightning comes from Orion's Juggernaut Mode addon, and the little star is drawn from Orion's own sketch.
 
 ![StatSparkle textures](docs/textures.png)
 

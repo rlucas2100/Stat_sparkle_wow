@@ -13,6 +13,14 @@
   difference, a glowing number that hops, and a burst of cartoon stars.
   Back to normal -> the extra effects fade away again.
 
+  While a stat is up, tiny cartoon stars pour out to the left and right of
+  the number. The stars stay inside the card and never cover the number.
+
+  FIRE MODE: a % stat at 50% or more (10% below the supernova point) turns
+  deep purple / orange so it stands apart from plain green "up" rows: a
+  purple aura and a fiery ring, lightning crackling across the card (from
+  Juggernaut Mode), a fiery number and arrow, and stars in every colour.
+
   SUPERNOVA: when a % stat climbs really high (60%+ by default) the number
   turns white-hot and the row goes off like an exploding star - shockwave
   rings, spinning light rays, a flash, sparks and a little screen shake.
@@ -22,15 +30,23 @@
   It is never updated during combat, so long buffs (e.g. Avenging Wrath)
   can't be mistaken for your normal and cause a false "down" afterwards.
 
+  IN COMBAT (Midnight): the game hides your stats from addons - they come in
+  as "secret" values that can be shown but not compared. StatSparkle still
+  lights rows up by letting the game do the comparison: every in-combat
+  effect is a status bar whose fill IS the effect, with the bar's range set
+  around your normal value, so it is empty at normal and full once the stat
+  is up (or down). See "In-combat effects" below.
+
   /ss            - help
   /ss test       - fake a proc up + a proc down
   /ss nova       - fake a Haste supernova
   /ss nova 55    - supernova starts at 55% (default 60)
   /ss nova off   - turn the supernova effect off (/ss nova on)
+  /ss combat     - preview the in-combat effects out of combat
+  /ss sound      - turn the 50%+ shimmer sound off / on
   /ss unlock     - drag it,  /ss lock to finish
   /ss scale 1.2  - resize
   /ss normal     - "my stats right now are normal" (reset the baseline)
-  /ss sound      - little sparkle sound on changes (off by default)
   /ss reset
 ========================================================================= ]]
 
@@ -43,8 +59,9 @@ local THRESHOLD = 0.05        -- % change that counts as "moved"
 local NOVA_AT = 60            -- % where a stat goes supernova (warms up 20% before)
 local NOVA_RANGE = 30         -- ...and is at full power this far above it
 
-local defaults = { point = "CENTER", relPoint = "CENTER", x = 360, y = -40, scale = 1, sound = false,
-                   nova = true, novaAt = NOVA_AT }
+-- the only sound: a shimmer when a % stat climbs to 50%+ (highSound, /ss sound)
+local defaults = { point = "CENTER", relPoint = "CENTER", x = 360, y = -40, scale = 1,
+                   nova = true, novaAt = NOVA_AT, highSound = true }
 local db
 
 local function Print(m) print("|cffffd200Stat|r|cffffffffSparkle|r: " .. tostring(m)) end
@@ -125,14 +142,21 @@ local CR_VERS = CR_VERSATILITY_DAMAGE_DONE or 29
 -- picked by the spec's primary stat so the number never flips between the two
 local function IsCaster() return primaryKey == "int" end
 
-local function MaxOf(list)
-    local best, secret
-    for _, v in ipairs(list) do
-        if Readable(v) then
-            if not best or v > best then best = v end
-        elseif v ~= nil then secret = v end
+-- the highest of several crit readings (melee / ranged, or each spell school).
+-- It remembers which one won, so in combat - when the readings are secret and
+-- can't be compared - it shows that same one, not a different kind of crit
+-- (which would look like a false drop or rise against your normal).
+local picked = {}
+local function MaxOf(kind, list, n)
+    local best, at
+    for i = 1, n do
+        local v = Readable(list[i])
+        if v and (not best or v > best) then best, at = v, i end
     end
-    return best or secret
+    if best then picked[kind] = at return best end
+    local p = picked[kind]
+    if p and list[p] ~= nil then return list[p] end
+    for i = 1, n do if list[i] ~= nil then return list[i] end end
 end
 
 local STATS = {
@@ -156,10 +180,10 @@ local STATS = {
       get = function()
           if IsCaster() then
               local t = {}
-              for school = 2, 7 do t[#t + 1] = Call(GetSpellCritChance, school) end
-              return MaxOf(t)
+              for school = 2, 7 do t[school - 1] = Call(GetSpellCritChance, school) end
+              return MaxOf("spell", t, 6)
           end
-          return MaxOf({ Call(GetCritChance), Call(GetRangedCritChance) })
+          return MaxOf("melee", { Call(GetCritChance), Call(GetRangedCritChance) }, 2)
       end },
     { key = "haste", label = "Haste", icon = "ico_haste", art = { 131, 54, 256, 64 },
       theme = { 1.00, 0.80, 0.12 }, text = { 1.00, 0.93, 0.55 },
@@ -185,6 +209,7 @@ do   -- start the primary row as Strength until the spec is known
 end
 
 local UP_C, DOWN_C = { 0.30, 1.00, 0.35 }, { 1.00, 0.22, 0.18 }
+local FIRE_PURPLE, FIRE_ORANGE = { 0.62, 0.12, 1.00 }, { 1.00, 0.48, 0.08 }   -- 50%+ fire mode
 local HOT_C = { 1.00, 0.97, 0.86 }   -- white-hot colour a supernova number burns towards
 
 -- ---------------------------------------------------------------------------
@@ -272,6 +297,30 @@ local HALO = { { 2.5, 0 }, { -2.5, 0 }, { 0, 2.5 }, { 0, -2.5 }, { 1.8, 1.8 }, {
 
 local function ScaleText(fs, s)
     if fs.SetTextScale then pcall(fs.SetTextScale, fs, s) else pcall(fs.SetScale, fs, s) end
+end
+
+-- ---------------------------------------------------------------------------
+-- In-combat effects
+-- ---------------------------------------------------------------------------
+-- In combat the game gives StatSparkle secret stat values: they can be shown
+-- but not compared with your normal. A StatusBar can still be fed a secret
+-- value, and the game itself works out how much of the bar to fill. So each
+-- in-combat effect is a status bar whose fill texture IS the effect, with the
+-- bar's range set around your normal value: empty at normal, full once the
+-- stat is up (or down, or supernova). StatSparkle never learns the answer; it
+-- only animates the bars, and only the full ones can be seen.
+local function GateBar(list, level, tex, blend, c, a, parent)
+    local b = CreateFrame("StatusBar", nil, parent or f)
+    b:SetFrameLevel(BASE_LVL + level)
+    b:SetStatusBarTexture(tex)
+    local fill = b:GetStatusBarTexture()
+    if blend then fill:SetBlendMode(blend) end
+    if c then b:SetStatusBarColor(c[1], c[2], c[3], a or 1) end
+    b:SetMinMaxValues(0, 1)
+    b:SetValue(0)
+    b:Hide()
+    list[#list + 1] = b
+    return b
 end
 
 -- paint a row with its stat's art and colours (also used when the primary stat swaps)
@@ -408,6 +457,122 @@ for i, st in ipairs(STATS) do
     r.heat, r.novaN, r.isNova, r.ringT, r.sparkT, r.flashT = 0, 0, false, 0, 0, nil
     r.jy, r.jv, r.valueW = 0, 0, 90
     SkinRow(r)
+
+    -- ---- effect bars (see GateBar) ----
+    --   gUp / gDown / gNova: only in combat, when the stats are secret (out of
+    --     combat the normal effects above do this job)
+    --   gUpFx / gDownFx / gHigh: always - a soft inner glow, and tiny cartoon
+    --     stars pouring out to the left and right of the number for a stat
+    --     that is up, or a % stat at 50% or more (10% below the supernova point)
+    r.gUp, r.gDown, r.gNova, r.gUpFx, r.gDownFx, r.gHigh = {}, {}, {}, {}, {}, {}
+    local function Around(b, m) b:SetPoint("TOPLEFT", r, "TOPLEFT", -m, m); b:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", m, -m) end
+    local function Card(g, list, c)
+        g.glow2 = GateBar(list, 1, MEDIA .. "glow_outer", "ADD", c, 0.6)   -- wide soft outer glow
+        Around(g.glow2, 32)
+        g.glow = GateBar(list, 1, MEDIA .. "glow_outer", "ADD", c)         -- tight outer glow
+        Around(g.glow, 18)
+        g.border = GateBar(list, 1, MEDIA .. "row_border", nil, c)
+        Around(g.border, 5)
+        g.shine = GateBar(list, 8, MEDIA .. "blob", "ADD", c)              -- faint halo round the number
+        g.arrowGlow = GateBar(list, 8, MEDIA .. "blob", "ADD", c)
+    end
+    -- the stars live in a frame cut to the card, so they never reach the rows
+    -- above or below, and sit under the number so they never cover it
+    local clip = CreateFrame("Frame", nil, f)
+    clip:SetPoint("TOPLEFT", r, "TOPLEFT", 6, -4); clip:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", -6, 4)
+    clip:SetClipsChildren(true)
+    clip:SetFrameLevel(BASE_LVL + 4)
+    -- a soft inner glow + tiny cartoon stars pouring out either side of the number
+    local function Shimmer(g, list, c, stars)
+        g.inner = GateBar(list, 3, MEDIA .. "glow_pill", "ADD", c)
+        Around(g.inner, -5)
+        if not stars then return end
+        g.stars = {}
+        for k = 1, #stars * 2 do
+            local s = GateBar(list, 5, MEDIA .. "star5", nil, stars[(k - 1) % #stars + 1], 1, clip)
+            s.phase, s.lastQ, s.side = (k - 1) / (#stars * 2), 0, (k % 2 == 0) and 1 or -1
+            s.y0, s.dy, s.sz, s.reach = 0, 0, 9, 0.8
+            g.stars[k] = s
+        end
+    end
+    local u, d = {}, {}
+    Card(u, r.gUp, UP_C)
+    u.tint = GateBar(r.gUp, 7, MEDIA .. "tint_up", "MOD")          -- turns the number green
+    u.ghosts = {}
+    for k = 1, 2 do
+        local g = GateBar(r.gUp, 8, MEDIA .. "arrow_up", "ADD", UP_C)
+        g.phase = (k - 1) * 0.5
+        u.ghosts[k] = g
+    end
+    u.arrow = GateBar(r.gUp, 9, MEDIA .. "arrow_up", nil, UP_C)
+    u.stars = {}
+    local starC = { { 0.4, 1, 0.45 }, { 1, 0.9, 0.3 }, { 1, 1, 1 }, { 0.4, 1, 0.45 } }
+    for k = 1, 4 do
+        local s = GateBar(r.gUp, 9, MEDIA .. "star", nil, starC[k])
+        s.phase, s.jx, s.lastQ = (k - 1) / 4, (math.random() - 0.5) * 30, 0
+        u.stars[k] = s
+    end
+    Card(d, r.gDown, DOWN_C)
+    d.tint = GateBar(r.gDown, 7, MEDIA .. "tint_down", "MOD")      -- turns the number red
+    d.arrow = GateBar(r.gDown, 9, MEDIA .. "arrow_down", nil, DOWN_C)
+    r.gu, r.gd = u, d
+    r.fu, r.fd = {}, {}
+    local GREEN, GOLD, WHITE = { 0.45, 1, 0.5 }, { 1, 0.85, 0.3 }, { 1, 1, 1 }
+    Shimmer(r.fu, r.gUpFx, UP_C, { GREEN, GOLD, { 0.7, 1, 0.6 }, WHITE, GREEN })   -- up: green + gold stars
+    Shimmer(r.fd, r.gDownFx, DOWN_C)                                                -- down: no stars
+    if not st.integer then
+        -- % stats from 50%: FIRE MODE - deep purple / orange, so it stands apart
+        -- from the plain green of a stat that is only up
+        local hi = {}
+        hi.aura = GateBar(r.gHigh, 1, MEDIA .. "glow_outer", "ADD", FIRE_PURPLE)   -- deep purple aura
+        Around(hi.aura, 30)
+        hi.aura2 = GateBar(r.gHigh, 1, MEDIA .. "glow_outer", "ADD", FIRE_ORANGE)  -- orange glow, close in
+        Around(hi.aura2, 16)
+        hi.border = GateBar(r.gHigh, 3, MEDIA .. "row_border")                     -- fiery ring over the green one
+        Around(hi.border, 5)
+        Shimmer(hi, r.gHigh, FIRE_ORANGE,
+                { GREEN, { 0.75, 0.45, 1 }, { 1, 0.5, 0.8 }, GOLD, { 0.4, 0.9, 1 } })   -- + rainbow stars
+        -- lightning crackling across the card (from Juggernaut Mode), behind the number
+        hi.bolts = {}
+        for k, c in ipairs({ FIRE_PURPLE, FIRE_ORANGE }) do
+            local slot = { speed = k == 1 and 170 or 230, phase = (k - 1) * 230, next = 0, v = 1, bright = 1 }
+            for v = 1, 3 do slot[v] = GateBar(r.gHigh, 5, MEDIA .. "bolt" .. v, "ADD", c, 1, clip) end
+            hi.bolts[k] = slot
+        end
+        -- the number: deep purple, with an orange flame flickering across it
+        hi.tint = GateBar(r.gHigh, 7, MEDIA .. "tint_fire", "MOD")
+        hi.flame = GateBar(r.gHigh, 8, MEDIA .. "blob", "ADD", FIRE_ORANGE)
+        -- the arrow: a fiery one drawn over the green one, in a shimmering orb with sparks
+        hi.orb = GateBar(r.gHigh, 9, MEDIA .. "blob", "ADD", FIRE_ORANGE)
+        hi.arrow = GateBar(r.gHigh, 10, MEDIA .. "arrow_up")
+        hi.sparks = {}
+        for k = 1, 2 do
+            local s = GateBar(r.gHigh, 10, MEDIA .. "spark", "ADD", k == 1 and { 1, 0.85, 0.5 } or { 0.85, 0.6, 1 })
+            s.phase, s.lastQ, s.x, s.y = (k - 1) / 2, 0, 0, 0
+            hi.sparks[k] = s
+        end
+        r.fh = hi
+    end
+    if not st.integer then   -- % stats can also go supernova
+        local n, th = {}, st.theme
+        n.glow = GateBar(r.gNova, 4, MEDIA .. "glow_outer", "ADD", th)
+        n.glow:SetPoint("TOPLEFT", r, "TOPLEFT", -22, 22); n.glow:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 22, -22)
+        n.border = GateBar(r.gNova, 4, MEDIA .. "row_border", "ADD",
+                           { Lerp(th[1], 1, 0.6), Lerp(th[2], 0.95, 0.6), Lerp(th[3], 0.7, 0.6) })
+        n.border:SetPoint("TOPLEFT", r, "TOPLEFT", -5, 5); n.border:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 5, -5)
+        n.rays1 = GateBar(r.gNova, 4, MEDIA .. "fx_rays", "ADD", th, 0.85)
+        n.rays2 = GateBar(r.gNova, 4, MEDIA .. "fx_rays", "ADD", { 1, 0.93, 0.65 }, 0.7)
+        n.rings = {}
+        for k = 1, 3 do
+            local g = GateBar(r.gNova, 5, MEDIA .. "fx_ring", "ADD", k == 2 and { 1, 0.97, 0.85 } or th)
+            g.phase = (k - 1) / 3
+            n.rings[k] = g
+        end
+        n.core = GateBar(r.gNova, 5, MEDIA .. "blob", "ADD", { Lerp(th[1], 1, 0.55), Lerp(th[2], 1, 0.55), Lerp(th[3], 1, 0.55) })
+        n.flare = GateBar(r.gNova, 5, MEDIA .. "flare", "ADD", { 1, 1, 1 })
+        n.hot = GateBar(r.gNova, 8, MEDIA .. "blob", "ADD", HOT_C)  -- the number burns white-hot
+        r.gn = n
+    end
     rows[i] = r
 end
 
@@ -445,7 +610,6 @@ local function Burst(r, up)
         r.shake = 1; r.sweepT = 0
         r.jv = math.max(r.jv, 170)   -- the number hops up
     end
-    if db and db.sound then pcall(PlaySound, 3175, "SFX") end
 end
 
 -- where the number sits, relative to the middle of the whole frame
@@ -498,7 +662,6 @@ local function Detonate(r)
     r.jv = math.max(r.jv, 260)
     r.pop = 1
     frameShake = 1
-    if db and db.sound then pcall(PlaySound, 3175, "SFX") end
 end
 
 local function ShowNova(r, show)
@@ -511,6 +674,156 @@ local function PlaceAtValue(tex, r, size, jy)
     tex:ClearAllPoints()
     tex:SetPoint("CENTER", r, "RIGHT", VALUE_X - r.valueW / 2, jy or 0)
     tex:SetSize(size, size)
+end
+
+-- ---- in-combat effects: keep every bar of a row moving; the game decides which show ----
+local function GatePlace(b, r, x, y, w, h)
+    b:SetPoint("CENTER", r, "RIGHT", x, y)
+    b:SetSize(w, h or w)
+end
+
+local function AnimateGates(r, t, pulse)
+    local vw = r.valueW
+    local vx = VALUE_X - vw / 2                 -- middle of the number
+    local flick = 0.85 + 0.15 * math.sin(t * 11 + r.phase)
+    for _, dir in ipairs({ 1, -1 }) do
+        local g = dir > 0 and r.gu or r.gd
+        g.glow:SetAlpha(pulse)
+        g.glow2:SetAlpha(0.45 + 0.35 * math.sin(t * 2.6 + r.phase))
+        g.border:SetAlpha(0.7 + 0.3 * pulse)
+        GatePlace(g.tint, r, vx, 0, vw + 30, 56)
+        GatePlace(g.shine, r, vx, 0, vw + 40, 56)              -- only a faint halo: the number stays crisp
+        g.shine:SetAlpha(0.22 * flick)
+        local bob = math.sin(t * 6) * 4 * dir
+        GatePlace(g.arrow, r, ARROW_X, bob, 38 * (1 + 0.12 * math.sin(t * 8)))
+        GatePlace(g.arrowGlow, r, ARROW_X, bob, 76)
+        g.arrowGlow:SetAlpha(0.5 + 0.5 * pulse)
+    end
+    local u = r.gu
+    -- ghost arrows and little stars keep rising off the up-arrow
+    for _, gh in ipairs(u.ghosts) do
+        local q = (t * 1.1 + gh.phase) % 1
+        GatePlace(gh, r, ARROW_X, 4 + q * 26, 30 * (1 - q * 0.4))
+        gh:SetAlpha(0.55 * (1 - q) * math.min(1, q * 5))
+    end
+    for _, s in ipairs(u.stars) do
+        local q = (t * 0.9 + s.phase) % 1
+        if q < s.lastQ then s.jx = (math.random() - 0.5) * 30 end
+        s.lastQ = q
+        GatePlace(s, r, ARROW_X + s.jx, 8 + q * 44, 9 + 5 * (1 - q))
+        s:SetAlpha((1 - q * q) * math.min(1, q * 6))
+    end
+    -- supernova: a % stat at or above the supernova %
+    local n = r.gn
+    if n then
+        local beat = 1 + 0.12 * math.sin(t * 9)
+        GatePlace(n.core, r, vx, 0, 220 * beat)
+        n.core:SetAlpha(0.4 * (0.75 + 0.25 * math.sin(t * 9)))
+        GatePlace(n.rays1, r, vx, 0, 300 * (0.95 + 0.05 * math.sin(t * 3)))
+        GatePlace(n.rays2, r, vx, 0, 230 * (0.9 + 0.1 * math.sin(t * 6)))
+        GatePlace(n.flare, r, vx, 0, 190 * (0.75 + 0.45 * math.abs(math.sin(t * 4.5))))
+        n.flare:SetAlpha(0.45)
+        n.glow:SetAlpha(0.75 * (0.7 + 0.3 * math.sin(t * 7)))
+        n.border:SetAlpha(0.7 * (0.6 + 0.4 * math.sin(t * 14 + r.phase)))
+        for _, ring in ipairs(n.rings) do
+            local q = (t * 1.2 + ring.phase) % 1
+            GatePlace(ring, r, vx, 0, 24 + 300 * (1 - (1 - q) ^ 3))
+            ring:SetAlpha((1 - q) ^ 1.5 * 0.85)
+        end
+        GatePlace(n.hot, r, vx, 0, vw + 40, 60)
+        n.hot:SetAlpha(0.12 + 0.06 * math.sin(t * 17))
+    end
+end
+
+-- ---- tiny cartoon stars pouring out to the left and right of the number ----
+-- They start at the number's edges and drift outwards, never across the digits,
+-- and the card-shaped frame they live in keeps them off the other rows.
+local function AnimateStars(g, r, t, vw, speed)
+    local nameW = NAME_H * r.stat.art[1] / r.stat.art[2]
+    local nameRight = -(W - PAD * 2) + 6 + ICON_S + 2 + nameW      -- from the row's right edge
+    local leftRoom = math.max(10, (VALUE_X - vw) - nameRight - 6)    -- stop before the stat name
+    local rightRoom = -6 - VALUE_X - 6                               -- stop before the card's end
+    for _, s in ipairs(g.stars) do
+        local q = (t * speed + s.phase) % 1
+        if q < s.lastQ then              -- a new star: its own height, drift, size and reach
+            s.y0 = (math.random() - 0.5) * 16
+            s.dy = (math.random() - 0.5) * 14
+            s.sz = 9 + math.random() * 6
+            s.reach = 0.55 + math.random() * 0.45
+        end
+        s.lastQ = q
+        local edge = s.side < 0 and (VALUE_X - vw - 2) or (VALUE_X + 2)
+        local x = edge + s.side * q * (s.side < 0 and leftRoom or rightRoom) * s.reach
+        GatePlace(s, r, x, s.y0 + s.dy * q, s.sz * math.min(1, q * 5) * (1 - 0.45 * q))
+        s:SetAlpha((1 - q) ^ 0.6)
+    end
+end
+
+-- ---- 50%+ fire mode: purple / orange, lightning, a fiery number and arrow ----
+local function Mix(a, b, k) return Lerp(a[1], b[1], k), Lerp(a[2], b[2], k), Lerp(a[3], b[3], k) end
+
+local function AnimateFire(hi, r, t, vw)
+    local vx = VALUE_X - vw / 2
+    local swing = 0.5 + 0.5 * math.sin(t * 3 + r.phase)          -- orange <-> purple
+    local flick = 0.85 + 0.15 * math.sin(t * 13 + r.phase)
+    hi.aura:SetAlpha(0.55 + 0.35 * math.sin(t * 2.5 + r.phase))
+    hi.aura2:SetAlpha((0.3 + 0.25 * swing) * flick)
+    hi.border:SetStatusBarColor(Mix(FIRE_ORANGE, FIRE_PURPLE, swing))
+    hi.border:SetAlpha(0.85 + 0.15 * math.sin(t * 9))             -- buzzing neon ring
+    hi.inner:SetStatusBarColor(Mix(FIRE_PURPLE, FIRE_ORANGE, swing))
+    hi.inner:SetAlpha(0.18 + 0.1 * math.sin(t * 4 + r.phase))
+    -- lightning: sweeps across the card, re-striking with a new shape every few frames
+    local now, rowW = GetTime(), W - PAD * 2
+    for _, slot in ipairs(hi.bolts) do
+        local x = ((t * slot.speed + slot.phase + r.phase * 60) % (rowW + 60)) - 30 - rowW
+        if now >= slot.next then
+            slot.next = now + 0.05 + math.random() * 0.09
+            slot.v = math.random(1, 3)
+            slot.bright = (math.random() < 0.15) and 0.25 or (0.7 + math.random() * 0.3)
+        end
+        for v = 1, 3 do
+            local b = slot[v]
+            GatePlace(b, r, x, 0, 18, 66)
+            b:SetAlpha(v == slot.v and slot.bright or 0)
+        end
+    end
+    -- the number: deep magenta / purple, with an orange flame swaying across it
+    GatePlace(hi.tint, r, vx, 0, vw + 30, 56)
+    GatePlace(hi.flame, r, vx + math.sin(t * 2.3 + r.phase) * vw * 0.15, 0, vw * 0.8 + 20, 44)
+    hi.flame:SetStatusBarColor(1, 0.4 + 0.15 * math.sin(t * 5 + r.phase), 0.05)
+    hi.flame:SetAlpha((0.5 + 0.1 * math.sin(t * 17)) * flick)
+    -- the arrow: fiery orange <-> magenta, in a shimmering orb, sparks twinkling round it
+    local bob = math.sin(t * 6) * 4
+    GatePlace(hi.arrow, r, ARROW_X, bob, 38 * (1 + 0.12 * math.sin(t * 8)))
+    hi.arrow:SetStatusBarColor(Mix({ 1, 0.55, 0.1 }, { 1, 0.3, 0.9 }, swing))
+    GatePlace(hi.orb, r, ARROW_X, bob, 62 + 6 * math.sin(t * 7))
+    hi.orb:SetStatusBarColor(Mix(FIRE_PURPLE, FIRE_ORANGE, swing))
+    hi.orb:SetAlpha(0.55 + 0.3 * math.sin(t * 7 + r.phase))
+    for _, s in ipairs(hi.sparks) do
+        local q = (t * 1.4 + s.phase) % 1
+        if q < s.lastQ then s.x, s.y = (math.random() - 0.5) * 34, (math.random() - 0.5) * 34 end
+        s.lastQ = q
+        local tw = math.sin(q * math.pi)
+        GatePlace(s, r, ARROW_X + s.x, bob + s.y, 3 + 15 * tw * tw)
+        s:SetAlpha(tw)
+    end
+    AnimateStars(hi, r, t, vw, 0.7)
+end
+
+local function AnimateFx(r, t, pulse)
+    local vw = r.valueW
+    local secret = r.gated              -- in combat we can't tell which state shows, so run them all
+    if secret or r.dir > 0 then
+        r.fu.inner:SetAlpha(0.2 + 0.12 * pulse)
+        AnimateStars(r.fu, r, t, vw, 0.9)
+    end
+    if secret or r.dir < 0 then
+        r.fd.inner:SetAlpha(0.22 + 0.1 * pulse)
+    end
+    local hi = r.fh
+    if hi and (secret or (r.pct and db and r.pct >= db.novaAt - 10)) then
+        AnimateFire(hi, r, t, vw)
+    end
 end
 
 local t = 0
@@ -570,6 +883,8 @@ f:SetScript("OnUpdate", function(self, e)
         local target = (r.dir ~= 0) and 1 or 0
         r.glowA = r.glowA + (target - r.glowA) * math.min(1, e * 6)
         local pulse = 0.65 + 0.35 * math.sin(t * 5)
+        if r.gated then AnimateGates(r, t, pulse) end
+        if r.fxShown then AnimateFx(r, t, pulse) end
         local c = r.dir < 0 and DOWN_C or UP_C
         local th = r.stat.theme
         r.stateGlow:SetVertexColor(c[1], c[2], c[3], 1)
@@ -831,6 +1146,101 @@ local function SetValueText(r, text)
     for _, o in ipairs(r.halo) do o:SetText(text) end
 end
 
+-- a secret number: keep the thousands separators (12,345) if the game allows it
+local secretCommas = true   -- false once the game refuses, so it isn't retried all fight
+local function SetSecretValue(r, raw)
+    if secretCommas and r.stat.integer and BreakUpLargeNumbers then
+        local ok, s = pcall(BreakUpLargeNumbers, raw)
+        if ok and s then SetValueText(r, s) return end
+        secretCommas = false
+    end
+    SetValue(r, r.stat.integer and "%d" or "%.2f%%", raw)
+end
+
+-- ---- effect bars: show them and feed them the value ----
+local function ShowBars(sets, on)
+    for _, set in ipairs(sets) do
+        for _, b in ipairs(set) do b:SetShown(on) end
+    end
+end
+local function SetGated(r, on)     -- the in-combat-only bars
+    if r.gated == on then return end
+    r.gated = on
+    ShowBars({ r.gUp, r.gDown, r.gNova }, on)
+end
+local function SetFx(r, on)        -- the shimmer bars (in and out of combat)
+    if r.fxShown == on then return end
+    r.fxShown = on
+    ShowBars({ r.gUpFx, r.gDownFx, r.gHigh }, on)
+end
+
+-- UP-style bars: empty below lo, full from hi
+local function FeedUp(set, lo, hi, raw)
+    for _, b in ipairs(set) do b:SetMinMaxValues(lo, hi); b:SetValue(raw) end
+end
+
+local minMaxTakesSecrets   -- nil until needed: can a status bar's max be a secret?
+
+-- DOWN-style bars: the stat itself is the bar's MAX and its value is "normal -
+-- one step", so the bar is full once the stat drops to that, and only a 0.1%
+-- sliver (the texture's see-through edge) at normal
+local function FeedDown(set, base, thr, raw)
+    local c, cLo = base - thr, base - thr * 1.001
+    local readable, first, mode = Readable(raw), set[1]
+    if readable then                                   -- out of combat / preview
+        mode = readable <= c and 1 or 0
+    elseif pcall(first.SetMinMaxValues, first, cLo, raw) then
+        mode = "range"
+    else
+        -- refused: either max < min (the stat is far below normal) or status
+        -- bars don't take secrets at all - one test tells the two apart
+        if minMaxTakesSecrets == nil then minMaxTakesSecrets = pcall(first.SetMinMaxValues, first, -1e15, raw) end
+        mode = minMaxTakesSecrets and 1 or 0
+    end
+    for _, b in ipairs(set) do
+        if mode == "range" then b:SetMinMaxValues(cLo, raw); b:SetValue(c)
+        else b:SetMinMaxValues(0, 1); b:SetValue(mode) end
+    end
+end
+
+local function FeedGates(r, raw)   -- in combat: up, down, supernova
+    local thr, base = r.stat.threshold or THRESHOLD, r.base
+    FeedUp(r.gUp, base + thr * 0.5, base + thr, raw)  -- full from normal + one step
+    FeedDown(r.gDown, base, thr, raw)
+    if r.gn then                                       -- full from the supernova % up
+        local at = db.novaAt
+        if db.nova then FeedUp(r.gNova, at - 0.01, at, raw) else FeedUp(r.gNova, 0, 1, 0) end
+    end
+end
+
+local function FeedFx(r, raw)      -- in and out of combat: shimmer when up / down / 50%+
+    local thr, base = r.stat.threshold or THRESHOLD, r.base
+    if base then
+        FeedUp(r.gUpFx, base + thr * 0.5, base + thr, raw)
+        FeedDown(r.gDownFx, base, thr, raw)
+    else
+        FeedUp(r.gUpFx, 0, 1, 0); FeedUp(r.gDownFx, 0, 1, 0)
+    end
+    if r.fh then
+        local at = db.novaAt - 10
+        FeedUp(r.gHigh, at - 0.01, at, raw)
+    end
+end
+
+local combatDemo   -- /ss combat: until this time, show the in-combat look with real numbers
+
+-- ---- the 50%+ shimmer sound ----
+-- Played when a % stat climbs to 50%+ while the game lets StatSparkle see the
+-- number (out of combat). In combat the stats are secret, so a crossing can't be
+-- noticed; afterwards it quietly catches up instead of playing late.
+local SHIMMER_SOUND = (SOUNDKIT and SOUNDKIT.UI_EPICLOOT_TOAST) or 3175
+local lastSound = 0
+local function HighSound(r, now)
+    if not db.highSound or now - lastSound < 3 or now - (r.soundAt or -1e9) < 15 then return end
+    lastSound, r.soundAt = now, now
+    pcall(PlaySound, SHIMMER_SOUND, "SFX")
+end
+
 -- swap the primary row between Strength, Agility and Intellect (only this row changes)
 local function ApplyPrimary(key)
     if not PRIMARY[key] then key = "str" end
@@ -866,10 +1276,22 @@ local function Update()
             end
         end
         local v = Readable(raw)
-        if v == nil then
-            if raw ~= nil then SetValue(r, r.stat.integer and "%d" or "%.2f%%", raw) else SetValueText(r, "--") end
+        local demo = v ~= nil and combatDemo ~= nil and now < combatDemo
+        if v == nil or demo then
+            -- secret (in combat) or the /ss combat preview: show the number and let
+            -- the in-combat effect bars do the up / down / supernova part
+            if demo then SetValueText(r, FormatValue(r, v))
+            elseif raw ~= nil then SetSecretValue(r, raw)
+            else SetValueText(r, "--") end
             r.delta:SetText(""); r.arrow:Hide(); r.dir = 0; r.pct = nil
+            r.wasHigh = nil   -- unknown while secret; catch up quietly afterwards
+            local tc, thc = r.stat.text, r.stat.theme   -- no leftover green / red from before
+            r.col = { tc[1], tc[2], tc[3] }
+            r.gcol = { thc[1], thc[2], thc[3], 0.18 }
+            SetGated(r, raw ~= nil and r.base ~= nil and pcall(FeedGates, r, raw))
+            SetFx(r, raw ~= nil and pcall(FeedFx, r, raw))
         else
+            SetGated(r, false)
             SetValueText(r, FormatValue(r, v))
             r.pct = (not r.stat.integer) and v or nil
             local w = Readable(Call(r.value.GetStringWidth, r.value))
@@ -906,6 +1328,12 @@ local function Update()
                 local tc, thc = r.stat.text, r.stat.theme
                 r.col = { tc[1], tc[2], tc[3] }
                 r.gcol = { thc[1], thc[2], thc[3], 0.18 }
+            end
+            SetFx(r, pcall(FeedFx, r, raw))
+            if r.fh then   -- shimmer sound when a % stat climbs to 50%+
+                local high = v >= db.novaAt - 10
+                if high and r.wasHigh == false then HighSound(r, now) end
+                r.wasHigh = high
             end
         end
     end
@@ -945,6 +1373,7 @@ ev:SetScript("OnEvent", function(_, event, arg1)
         StatSparkleDB = StatSparkleDB or {}
         db = StatSparkleDB
         for k, v in pairs(defaults) do if db[k] == nil then db[k] = v end end
+        db.sound = nil   -- the old "sound on every change" setting (removed in 2.10.0)
         ApplyPosition()
     elseif event == "PLAYER_EQUIPMENT_CHANGED" or event == "PLAYER_SPECIALIZATION_CHANGED" or event == "TRAIT_CONFIG_UPDATED"
         or event == "ACTIVE_TALENT_GROUP_CHANGED" or event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED" then
@@ -991,6 +1420,26 @@ SlashCmdList.STATSPARKLE = function(msg)
             h.fake = { from = from, peak = math.max(from, db.novaAt) + 25, t0 = GetTime(), stop = GetTime() + 9 }
             Update()
         end
+    elseif cmd == "combat" then
+        -- preview the in-combat look out of combat: Haste up, Versatility down,
+        -- Critical Strike climbing into supernova
+        local h, v, c = byKey.haste, byKey.vers, byKey.crit
+        if not (h.base and v.base and c.base) then Print("Give it a few seconds out of combat first.") return end
+        local now = GetTime()
+        local function Fake(r, by, floor)   -- a made-up reading; your normal stays untouched
+            local from = r.base
+            r.fake = { from = from, peak = math.max(from + by, floor or -1e9), t0 = now, stop = now + 8 }
+        end
+        Fake(h, 4.2)
+        Fake(v, -1.5)
+        Fake(c, 12, db.novaAt + 12)
+        combatDemo = now + 8
+        Update()
+        Print("Showing the in-combat look for 8 seconds.")
+    elseif cmd == "sound" then
+        db.highSound = not db.highSound
+        Print("50%+ shimmer sound " .. (db.highSound and "ON" or "OFF"))
+        if db.highSound then pcall(PlaySound, SHIMMER_SOUND, "SFX") end
     elseif cmd == "unlock" then
         f:EnableMouse(true); dragTex:Show(); Print("Drag it, then /ss lock")
     elseif cmd == "lock" then
@@ -1002,12 +1451,10 @@ SlashCmdList.STATSPARKLE = function(msg)
     elseif cmd == "normal" then
         for _, r in ipairs(rows) do r.base = r.last; r.provisional = false end
         Update(); Print("Current stats saved as your normal.")
-    elseif cmd == "sound" then
-        db.sound = not db.sound; Print("Sparkle sound " .. (db.sound and "ON" or "OFF"))
     elseif cmd == "reset" then
         for k, v in pairs(defaults) do db[k] = v end
         ApplyPosition(); Print("Reset.")
     else
-        Print("/ss test | nova [on|off|<n>] | unlock | lock | scale <n> | normal | sound | reset")
+        Print("/ss test | combat | nova [on|off|<n>] | sound | unlock | lock | scale <n> | normal | reset")
     end
 end
