@@ -1,5 +1,12 @@
 # StatSparkle Changelog
 
+## 2.10.4
+
+### New
+- **StatSparkle has its own icon.** The in-game AddOn list now shows a rainbow phoenix arrow on a neon tile instead of a question mark.
+
+---
+
 ## 2.10.3
 
 ### Changed
