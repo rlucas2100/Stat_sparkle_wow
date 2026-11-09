@@ -1,5 +1,13 @@
 # StatSparkle Changelog
 
+## 2.10.3
+
+### Changed
+- **Jackpot mode now needs a stat to be well above your normal as well.** A stat now has to reach 50% *and* be at least 5% above your normal. A stat that always sits around 50%, like a Holy Paladin's Mastery, no longer glows all the time; it lights up when a proc or buff pushes it higher. Stats that are normally well below 50% work exactly as before.
+- The jackpot shimmer sound follows the same rule.
+
+---
+
 ## 2.10.2
 
 ### New

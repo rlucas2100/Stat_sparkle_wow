@@ -16,11 +16,13 @@
   While a stat is up, tiny cartoon stars pour out to the left and right of
   the number. The stars stay inside the card and never cover the number.
 
-  JACKPOT MODE: a % stat at 50% or more (10% below the supernova point) turns
-  gold so it stands apart from plain green "up" rows (and never red, which
-  means a stat is DOWN): a purple aura and a gold ring, lightning crackling
-  across the card (from Juggernaut Mode), a number and arrow that shift
-  between gold and orange, and stars in every colour.
+  JACKPOT MODE: a % stat at 50% or more (10% below the supernova point) that
+  is also at least 5% above your normal turns gold, so it stands apart from
+  plain green "up" rows (and never red, which means a stat is DOWN): a purple
+  aura and a gold ring, lightning crackling across the card (from Juggernaut
+  Mode), a number that shifts between gold and orange, a rainbow phoenix
+  arrow, and stars in every colour. A stat that always sits near 50% (a Holy
+  Paladin's Mastery) only lights up when something pushes it higher.
 
   SUPERNOVA: when a % stat climbs really high (60%+ by default) the number
   turns white-hot and the row goes off like an exploding star - shockwave
@@ -44,7 +46,7 @@
   /ss nova 55    - supernova starts at 55% (default 60)
   /ss nova off   - turn the supernova effect off (/ss nova on)
   /ss combat     - preview the in-combat effects out of combat
-  /ss sound      - turn the 50%+ shimmer sound off / on
+  /ss sound      - turn the jackpot shimmer sound off / on
   /ss unlock     - drag it,  /ss lock to finish
   /ss scale 1.2  - resize
   /ss normal     - "my stats right now are normal" (reset the baseline)
@@ -60,7 +62,7 @@ local THRESHOLD = 0.05        -- % change that counts as "moved"
 local NOVA_AT = 60            -- % where a stat goes supernova (warms up 20% before)
 local NOVA_RANGE = 30         -- ...and is at full power this far above it
 
--- the only sound: a shimmer when a % stat climbs to 50%+ (highSound, /ss sound)
+-- the only sound: a shimmer when a % stat goes into jackpot mode (highSound, /ss sound)
 local defaults = { point = "CENTER", relPoint = "CENTER", x = 360, y = -40, scale = 1,
                    nova = true, novaAt = NOVA_AT, highSound = true }
 local db
@@ -212,6 +214,16 @@ end
 local UP_C, DOWN_C = { 0.30, 1.00, 0.35 }, { 1.00, 0.22, 0.18 }
 -- 50%+ jackpot mode: gold and orange (never red - red means a stat is DOWN), purple accents
 local JP_PURPLE, JP_GOLD, JP_ORANGE = { 0.62, 0.12, 1.00 }, { 1.00, 0.82, 0.20 }, { 1.00, 0.50, 0.08 }
+
+-- Where jackpot mode starts for a row: at 50% (10% below the supernova point)
+-- AND at least JACKPOT_ABOVE % above your normal - so a stat that always sits
+-- near 50% (like a Holy Paladin's Mastery) only lights up when something pushes
+-- it higher. Your normal is a plain number, so this works in combat too.
+local JACKPOT_ABOVE = 5
+local function JackpotAt(r)
+    if not (db and r.base) then return nil end
+    return math.max(db.novaAt - 10, r.base + JACKPOT_ABOVE)
+end
 local HOT_C = { 1.00, 0.97, 0.86 }   -- white-hot colour a supernova number burns towards
 
 -- ---------------------------------------------------------------------------
@@ -853,7 +865,8 @@ local function AnimateFx(r, t, pulse)
         r.fd.inner:SetAlpha(0.22 + 0.1 * pulse)
     end
     local hi = r.fh
-    if hi and (secret or (r.pct and db and r.pct >= db.novaAt - 10)) then
+    local at = JackpotAt(r)
+    if hi and (secret or (r.pct and at and r.pct >= at)) then
         AnimateFire(hi, r, t, vw)
     end
 end
@@ -1302,15 +1315,15 @@ local function FeedFx(r, raw)      -- in and out of combat: shimmer when up / do
         FeedUp(r.gUpFx, 0, 1, 0); FeedUp(r.gDownFx, 0, 1, 0)
     end
     if r.fh then
-        local at = db.novaAt - 10
-        FeedUp(r.gHigh, at - 0.01, at, raw)
+        local at = JackpotAt(r)
+        if at then FeedUp(r.gHigh, at - 0.01, at, raw) else FeedUp(r.gHigh, 0, 1, 0) end
     end
 end
 
 local combatDemo   -- /ss combat: until this time, show the in-combat look with real numbers
 
--- ---- the 50%+ shimmer sound ----
--- Played when a % stat climbs to 50%+ while the game lets StatSparkle see the
+-- ---- the jackpot shimmer sound ----
+-- Played when a % stat goes into jackpot mode while the game lets StatSparkle see the
 -- number (out of combat). In combat the stats are secret, so a crossing can't be
 -- noticed; afterwards it quietly catches up instead of playing late.
 local SHIMMER_SOUND = (SOUNDKIT and SOUNDKIT.UI_EPICLOOT_TOAST) or 3175
@@ -1410,8 +1423,9 @@ local function Update()
                 r.gcol = { thc[1], thc[2], thc[3], 0.18 }
             end
             SetFx(r, pcall(FeedFx, r, raw))
-            if r.fh then   -- shimmer sound when a % stat climbs to 50%+
-                local high = v >= db.novaAt - 10
+            if r.fh then   -- shimmer sound when a % stat goes into jackpot mode
+                local at = JackpotAt(r)
+                local high = at ~= nil and v >= at
                 if high and r.wasHigh == false then HighSound(r, now) end
                 r.wasHigh = high
             end
@@ -1527,7 +1541,7 @@ SlashCmdList.STATSPARKLE = function(msg)
         end
     elseif cmd == "sound" then
         db.highSound = not db.highSound
-        Print("50%+ shimmer sound " .. (db.highSound and "ON" or "OFF"))
+        Print("Jackpot shimmer sound " .. (db.highSound and "ON" or "OFF"))
         if db.highSound then pcall(PlaySound, SHIMMER_SOUND, "SFX") end
     elseif cmd == "unlock" then
         f:EnableMouse(true); dragTex:Show(); Print("Drag it, then /ss lock")

@@ -1,6 +1,6 @@
 # ✨ StatSparkle
 
-**Watch your stats move, live.** StatSparkle shows your primary stat, Armor and secondary stats in a glowing neon panel. When a trinket, proc or buff pushes a stat up or down, its row lights up **green** or **red**, an arrow bobs next to it and tiny cartoon stars pour out beside the number. At **50%** a stat goes into golden **jackpot mode** with crackling lightning, and at **60%** it goes **supernova**.
+**Watch your stats move, live.** StatSparkle shows your primary stat, Armor and secondary stats in a glowing neon panel. When a trinket, proc or buff pushes a stat up or down, its row lights up **green** or **red**, an arrow bobs next to it and tiny cartoon stars pour out beside the number. When a stat climbs to **50%** and well above your normal, it goes into golden **jackpot mode** with crackling lightning and a rainbow phoenix arrow. At **60%** it goes **supernova**.
 
 **Works for every class and spec, in and out of combat.** Strength, Agility or Intellect: StatSparkle shows the one your spec uses, and switches by itself when you change spec.
 
@@ -49,7 +49,7 @@ While a stat is up, tiny cartoon stars in green, gold and white pour out to the 
 
 ## 🎰 Jackpot mode at 50%
 
-When Critical Strike, Haste, Mastery or Versatility reaches **50% or more**, the row goes into jackpot mode. It's gold, so it stands apart from rows that are just green, and from red, which means a stat is down:
+When Critical Strike, Haste, Mastery or Versatility reaches **50% or more** and is at least **5% above your normal**, the row goes into jackpot mode. It's gold, so it stands apart from rows that are just green, and from red, which means a stat is down:
 
 - a deep purple aura and a gold ring that shimmers between gold and orange
 - purple and gold lightning crackling across the row, behind the number
@@ -63,13 +63,15 @@ When Critical Strike, Haste, Mastery or Versatility reaches **50% or more**, the
 
 Jackpot mode starts 10% below the supernova point, so `/ss nova 55` moves it to 45%.
 
-Out of combat you also hear a short shimmer as a stat climbs past 50%. It's the only sound StatSparkle makes, so it won't clash with your other addons. `/ss sound` turns it off.
+The 5% rule means a stat that's always around 50%, like a Holy Paladin's Mastery, doesn't sit in jackpot mode all the time. It lights up when a proc or buff pushes it higher.
+
+Out of combat you also hear a short shimmer as a stat goes into jackpot mode. It's the only sound StatSparkle makes, so it won't clash with your other addons. `/ss sound` turns it off.
 
 ## ⚔️ In combat
 
 World of Warcraft: Midnight hides your exact stats from addons during combat. StatSparkle still shows the live numbers, and rows still light up green or red with the arrow, the stars, jackpot mode and the supernova. It lets the game do the comparison.
 
-A few things only work out of combat: the exact change under the stat name (`+6.00%`), the star burst at the moment of a proc, the supernova's flash and screen shake, and the 50% sound. Type `/ss combat` to preview the in-combat look.
+A few things only work out of combat: the exact change under the stat name (`+6.00%`), the star burst at the moment of a proc, the supernova's flash and screen shake, and the jackpot sound. Type `/ss combat` to preview the in-combat look.
 
 ![StatSparkle in combat](https://raw.githubusercontent.com/rlucas2100/Stat_sparkle_wow/main/docs/ingame_combat.png)
 
@@ -90,7 +92,7 @@ When a percentage stat reaches **60% or higher**, its number turns white-hot and
 - **Sparkle effects.** Tiny cartoon stars pour out beside a number while it's up. Out of combat you also get star bursts, a light sweep and a hop when a stat jumps.
 - **Smart "normal" baseline.** StatSparkle learns your normal stats while you're out of combat and nothing is changing. It never updates during combat, so a long cooldown can't be mistaken for "normal" and show a false drop afterwards. It starts over when you change gear, spec or talents.
 - **Movable and resizable.** Drag it anywhere and scale it to fit your UI.
-- **One gentle sound:** a shimmer when a stat climbs past 50% out of combat. Nothing else makes a sound.
+- **One gentle sound:** a shimmer when a stat goes into jackpot mode out of combat. Nothing else makes a sound.
 
 ## Slash commands
 
@@ -106,7 +108,7 @@ When a percentage stat reaches **60% or higher**, its number turns white-hot and
 | `/ss lock` | Lock it in place |
 | `/ss scale 1.2` | Resize (0.3 to 3) |
 | `/ss normal` | Treat your current stats as normal |
-| `/ss sound` | Turn the 50% shimmer sound off or on |
+| `/ss sound` | Turn the jackpot shimmer sound off or on |
 | `/ss reset` | Reset position, scale and settings |
 
 `/statsparkle` works too.
